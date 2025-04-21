@@ -1,6 +1,9 @@
 from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import TimeoutException
 from time import sleep
 import requests 
 
@@ -10,12 +13,16 @@ if (image_query == ""):
     exit(1)
 
 max_download_range = 10
-max_download_range = int(input("Max download image range (default 10): "))
+_max_download_range = input("Max download image range (default 10): ")
+if _max_download_range != "":
+    max_download_range = int(_max_download_range)
 
 save_path = input("Save path: ")
 if (save_path == ""):
     print("What the cake? No input? :<")
     exit(1)
+
+iteration = int(input("Max iterations: "))
 
 print("[INFO]: opening driver")
 driver = webdriver.Firefox()
@@ -32,19 +39,27 @@ elements_nav_bar = driver.find_elements(By.CLASS_NAME, "kFFXe30DOpq5j1hbWU1q");
 driver.get(elements_nav_bar[1].get_attribute("href"))
 sleep(5)
 
-print("[INFO]: capturing all the images")
-image_container = driver.find_elements(By.CLASS_NAME, "SZ76bwIlqO8BBoqOLqYV")
+links = []
+while iteration >= 0:
+    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+    sleep(1)
+
+    image_container = driver.find_elements(By.CLASS_NAME, "SZ76bwIlqO8BBoqOLqYV")
+    for image in image_container:
+        image_tag = image.find_element(By.CSS_SELECTOR, "img")
+        image_src = image_tag.get_attribute("src")
+        links.append(image_src)
+
+    if len(links) >= max_download_range:
+        break
+
+    iteration -= 1
 
 print("[INFO]: downloading images")
-counter = 0
-while counter < len(image_container) and counter <= max_download_range:
-    div = image_container[counter]
-    image_tag = div.find_element(By.CSS_SELECTOR, "img")
-    image_src = image_tag.get_attribute("src")
-    data = requests.get(image_src).content
-    with open(save_path + str(counter)+".png", "wb") as f:
+for i in range(len(links)):
+    data = requests.get(links[i]).content
+    with open(save_path + str(i)+".png", "wb") as f:
         f.write(data)
-    counter += 1
 
 print("[INFO]: done. exiting now.")
 driver.close()
